@@ -3,4 +3,3 @@ bcrypt>=3.2.0
 secrets>=1.0.0
 requests>=2.20.0
 gunicorn>=20.0.0
-platform>=1.0.8
