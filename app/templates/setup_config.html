@@ -12,7 +12,6 @@
     <div class="container mt-5">
         <h1>Configuration Settings</h1>
         <form id="config-form">
-            <!-- Base Directory -->
             <div class="mb-3">
                 <label for="base_dir" class="form-label">Base Directory</label>
                 <div class="input-group">
@@ -22,7 +21,6 @@
                 <small class="form-text text-muted">Select the directory where the application is installed.</small>
             </div>
 
-            <!-- Caddyfile Path -->
             <div class="mb-3">
                 <label for="caddyfile" class="form-label">Caddyfile Path</label>
                 <div class="input-group">
@@ -32,19 +30,16 @@
                 <small class="form-text text-muted">Select the path to your Caddyfile configuration file.</small>
             </div>
 
-            <!-- Port -->
             <div class="mb-3">
                 <label for="port" class="form-label">Port</label>
                 <input type="number" id="port" class="form-control" placeholder="5154">
                 <small class="form-text text-muted">The port number for the web interface. Default: 5154.</small>
             </div>
 
-            <!-- Save Configuration -->
             <button type="submit" class="btn btn-primary">Save Configuration</button>
         </form>
     </div>
 
-    <!-- File Manager Modal -->
     <div class="modal" id="fileManagerModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -66,82 +61,81 @@
         </div>
     </div>
 
-    <!-- Include Popper.js -->
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
 
-<!-- Include Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
 
 
     <script>
-        // File Manager Logic
         let currentPath = "/";
         let selectedPath = "";
 
+        function normalisePath(path) {
+            return path.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '');
+        }
+
         function renderRootFileExplorer(path = null) {
-    const url = path ? `/list-root-directories?path=${encodeURIComponent(path)}` : "/list-root-directories";
+            const normalisedPath = path ? normalisePath(path) : null;
+            const url = normalisedPath ? `/list-root-directories?path=${encodeURIComponent(normalisedPath)}` : "/list-root-directories";
 
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const fileExplorer = document.getElementById("file-explorer");
-                const breadcrumb = document.getElementById("breadcrumb");
-                fileExplorer.innerHTML = "";
-                breadcrumb.innerHTML = "";
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const fileExplorer = document.getElementById("file-explorer");
+                        const breadcrumb = document.getElementById("breadcrumb");
+                        fileExplorer.innerHTML = "";
+                        breadcrumb.innerHTML = "";
 
-                // Breadcrumb navigation
-                const pathParts = path ? path.split(/\/|\\/).filter(Boolean) : ["root"];
-                let accumulatedPath = "";
-                pathParts.forEach((part, index) => {
-                    accumulatedPath += part === "root" ? "" : `${part}/`;
-                    const breadcrumbItem = document.createElement("li");
-                    breadcrumbItem.classList.add("breadcrumb-item");
-                    if (index === pathParts.length - 1) {
-                        breadcrumbItem.textContent = part || "/";
+                        const pathParts = normalisedPath ? normalisedPath.split('/') : ["root"];
+                        let accumulatedPath = "";
+                        pathParts.forEach((part, index) => {
+                            accumulatedPath += part === "root" ? "" : `/${part}`;
+                            const breadcrumbItem = document.createElement("li");
+                            breadcrumbItem.classList.add("breadcrumb-item");
+
+                            if (index === pathParts.length - 1) {
+                                breadcrumbItem.textContent = part || "/";
+                            } else {
+                                const link = document.createElement("a");
+                                link.href = "#";
+                                link.textContent = part || "/";
+                                link.onclick = () => renderRootFileExplorer(normalizePath(accumulatedPath));
+                                breadcrumbItem.appendChild(link);
+                            }
+                            breadcrumb.appendChild(breadcrumbItem);
+                        });
+
+                        data.files.forEach(file => {
+                            const item = document.createElement("div");
+                            item.classList.add("file-item", "d-flex", "align-items-center", "mb-2");
+
+                            const icon = document.createElement("i");
+                            icon.classList.add(file.type === "directory" ? "bi-folder-fill" : "bi-file-earmark");
+                            icon.style.marginRight = "10px";
+                            item.appendChild(icon);
+
+                            const name = document.createElement("span");
+                            name.textContent = file.name;
+                            name.style.flexGrow = "1";
+                            name.onclick = () => {
+                                if (file.type === "directory") {
+                                    selectedPath = normalisePath(`${normalizedPath || ""}/${file.name}`);
+                                    renderRootFileExplorer(selectedPath);
+                                } else {
+                                    selectedPath = normalisePath(`${normalizedPath || ""}/${file.name}`);
+                                }
+                            };
+                            item.appendChild(name);
+
+                            fileExplorer.appendChild(item);
+                        });
                     } else {
-                        const link = document.createElement("a");
-                        link.href = "#";
-                        link.textContent = part || "/";
-                        link.onclick = () => renderRootFileExplorer(accumulatedPath);
-                        breadcrumbItem.appendChild(link);
+                        alert(data.error || "Failed to load files.");
                     }
-                    breadcrumb.appendChild(breadcrumbItem);
-                });
-
-                // File listing
-                data.files.forEach(file => {
-                    const item = document.createElement("div");
-                    item.classList.add("file-item", "d-flex", "align-items-center", "mb-2");
-
-                    const icon = document.createElement("i");
-                    icon.classList.add(file.type === "directory" ? "bi-folder-fill" : "bi-file-earmark");
-                    icon.style.marginRight = "10px";
-                    item.appendChild(icon);
-
-                    const name = document.createElement("span");
-                    name.textContent = file.name;
-                    name.style.flexGrow = "1";
-                    name.onclick = () => {
-                        if (file.type === "directory") {
-                            selectedPath = `${path || ""}${file.name}/`;
-                            renderRootFileExplorer(selectedPath); // Drill down into the directory
-                        } else {
-                            selectedPath = `${path || ""}${file.name}`;
-                        }
-                    };
-                    item.appendChild(name);
-
-                    fileExplorer.appendChild(item);
-                });
-            } else {
-                alert(data.error || "Failed to load files.");
-            }
-        })
-        .catch(error => console.error("Error fetching files:", error));
-}
-
-
+                })
+                .catch(error => console.error("Error fetching files:", error));
+        }
 
         document.getElementById("browse-base-dir-btn").addEventListener("click", () => {
             currentPath = null;
@@ -149,7 +143,7 @@
             renderRootFileExplorer(currentPath);
             document.getElementById("select-btn").onclick = () => {
                 if (selectedPath) {
-                    document.getElementById("base_dir").value = selectedPath;
+                    document.getElementById("base_dir").value = normalisePath(selectedPath);
                 } else {
                     alert("Please select a directory.");
                 }
@@ -164,7 +158,7 @@
             renderRootFileExplorer(currentPath);
             document.getElementById("select-btn").onclick = () => {
                 if (selectedPath) {
-                    document.getElementById("caddyfile").value = selectedPath;
+                    document.getElementById("caddyfile").value = normalisePath(selectedPath);
                 } else {
                     alert("Please select a file.");
                 }
@@ -175,7 +169,7 @@
 
 
 
-        // Save Configuration
+
         document.getElementById("config-form").addEventListener("submit", (e) => {
             e.preventDefault();
             const baseDir = document.getElementById("base_dir").value || null;
