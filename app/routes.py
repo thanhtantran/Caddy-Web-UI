@@ -3,11 +3,13 @@ import json
 import bcrypt
 import zipfile
 from flask import Flask, request, jsonify, render_template, redirect, session, send_from_directory
+from flask import Flask, request, jsonify, render_template, redirect, session, send_from_directory
 from app.utils import parse_caddyfile, update_caddyfile
 from functools import wraps
 import shutil
 import secrets
 import platform
+import logging
 import logging
 
 USERS_FILE = os.path.join("app", "config", "users.json")
@@ -213,26 +215,30 @@ def create_app():
         try:
             data = request.json
             domain = data["domain"]
-            new_config = data["config"]
-
+            new_config = data.get("config", "").split('\n') if isinstance(data.get("config"), str) else data["config"]
+            
+            logger.debug(f"Editing site {domain} with new config: {new_config}")
             sites = parse_caddyfile(app.config['CADDYFILE'])
+            
             for site in sites:
                 if site["domain"] == domain:
                     old_root = get_site_root_dir(site["config"])
                     new_root = get_site_root_dir(new_config)
-                    
+                    logger.debug(f"Old root: {old_root}, New root: {new_root}")
+
                     if old_root != new_root and new_root:
                         if os.path.exists(old_root):
+                            logger.debug(f"Moving files from {old_root} to {new_root}")
                             os.makedirs(new_root, exist_ok=True)
                             for item in os.listdir(old_root):
-                                s = os.path.join(old_root, item)
-                                d = os.path.join(new_root, item)
-                                if os.path.isdir(s):
-                                    shutil.copytree(s, d)
+                                src = os.path.join(old_root, item)
+                                dst = os.path.join(new_root, item)
+                                if os.path.isdir(src):
+                                    shutil.copytree(src, dst)
                                 else:
-                                    shutil.copy2(s, d)
+                                    shutil.copy2(src, dst)
                             shutil.rmtree(old_root)
-
+                    
                     site["config"] = new_config
                     break
 
@@ -240,6 +246,7 @@ def create_app():
             os.system(f"caddy reload --config {app.config['CADDYFILE']}")
             return jsonify({"success": True})
         except Exception as e:
+            logger.error(f"Error editing site: {str(e)}")
             return jsonify({"success": False, "error": str(e)}), 500
 
     @app.route("/list-files/<path:site_path>", methods=["GET"])
@@ -289,6 +296,70 @@ def create_app():
         except Exception as e:
             logger.error(f"Error listing files: {str(e)}")
             return jsonify({"success": False, "error": str(e)}), 500
+        
+
+    @app.route("/edit-file/<path:site_path>/<filename>", methods=["GET"])
+    @login_required
+    def get_file_content(site_path, filename):
+        """Fetch the content of a file."""
+        try:
+            sites = parse_caddyfile(app.config['CADDYFILE'])
+            domain = site_path.split('/')[0]
+            
+            logger.debug(f"Getting file content for domain: {domain}, filename: {filename}")
+            
+            site = next((s for s in sites if s["domain"] == domain), None)
+            if not site:
+                return jsonify({"success": False, "error": "Site not found"}), 404
+
+            root_dir = get_site_root_dir(site["config"])
+            if not root_dir:
+                return jsonify({"success": False, "error": "No root directory configured"}), 400
+
+            file_path = os.path.normpath(os.path.join(root_dir, filename))
+            logger.debug(f"Attempting to read file: {file_path}")
+
+            if not os.path.exists(file_path):
+                logger.error(f"File not found: {file_path}")
+                return jsonify({"success": False, "error": "File not found"}), 404
+
+            with open(file_path, "r", encoding="utf-8") as file:
+                content = file.read()
+            return jsonify({"success": True, "content": content})
+        except Exception as e:
+            logger.error(f"Error in get_file_content: {str(e)}")
+            return jsonify({"success": False, "error": str(e)}), 500
+
+    @app.route("/save-file/<path:site_path>/<filename>", methods=["POST"])
+    @login_required
+    def save_file_content(site_path, filename):
+        """Save updated file content."""
+        try:
+            sites = parse_caddyfile(app.config['CADDYFILE'])
+            domain = site_path.split('/')[0]
+            
+            site = next((s for s in sites if s["domain"] == domain), None)
+            if not site:
+                return jsonify({"success": False, "error": "Site not found"}), 404
+
+            root_dir = get_site_root_dir(site["config"])
+            if not root_dir:
+                return jsonify({"success": False, "error": "No root directory configured"}), 400
+
+            file_path = os.path.join(root_dir, filename)
+            logger.debug(f"Saving to file: {file_path}")
+
+            if not os.path.exists(os.path.dirname(file_path)):
+                os.makedirs(os.path.dirname(file_path))
+
+            content = request.json.get("content", "")
+            with open(file_path, "w", encoding="utf-8") as file:
+                file.write(content)
+            return jsonify({"success": True, "message": "File saved successfully!"})
+        except Exception as e:
+            logger.error(f"Error in save_file_content: {str(e)}")
+            return jsonify({"success": False, "error": str(e)}), 500
+
 
     @app.route("/upload/<path:site_path>", methods=["POST"])
     @login_required
