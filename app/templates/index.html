@@ -369,7 +369,7 @@
             console.log("Opening file:", path, "in root:", root);
             fetch(`/edit-file/${domain}/${path}`)
                 .then((response) => response.json())
-                .then((data) => {w
+                .then((data) => {
                     if (data.success) {
                         const content = data.content;
                         const filename = path.split('/').pop();
