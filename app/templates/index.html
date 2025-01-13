@@ -369,7 +369,7 @@
             console.log("Opening file:", path, "in root:", root);
             fetch(`/edit-file/${domain}/${path}`)
                 .then((response) => response.json())
-                .then((data) => {
+                .then((data) => {w
                     if (data.success) {
                         const content = data.content;
                         const filename = path.split('/').pop();
@@ -611,12 +611,6 @@ function initializeEditor(filename, content = "") {
         };
 
         function renderFileExplorer(domain, path = "") {
-<<<<<<< HEAD
-            const fullPath = `${domain}/${path}`.replace(/\/\/+/g, "/");
-            currentPath = fullPath;
-
-            fetch(`/list-files/${currentPath}`)
-=======
             const root = siteConfigs[domain].root;
             const relativePath = path ? `/${path}` : '';
             const fullPath = `${domain}${relativePath}`.replace(/\/\/+/g, "/");
@@ -625,7 +619,6 @@ function initializeEditor(filename, content = "") {
             console.log("Full path:", fullPath);
 
             fetch(`/list-files/${fullPath}`)
->>>>>>> development
                 .then(response => response.json())
                 .then(data => {
                     const fileExplorer = document.getElementById("file-explorer");
