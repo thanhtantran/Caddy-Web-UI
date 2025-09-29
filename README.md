@@ -69,9 +69,53 @@ Caddy Web UI is a user-friendly interface for managing Caddy server configuratio
 └── README.md
 ```
 
+## Start the app on startup
+
+1. Create the service file:
+```bash
+sudo nano /etc/systemd/system/caddy-web-ui.service
+```
+2. Add the following content:
+```
+[Unit]
+Description=Caddy Web UI
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/Caddy-Web-UI
+Environment=PATH=/usr/bin:/usr/local/bin
+ExecStart=/usr/bin/python3 /root/Caddy-Web-UI/run.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+3. Enable and Start the Service
+```bash
+# Reload systemd to recognize the new service
+sudo systemctl daemon-reload
+
+# Enable the service to start on boot
+sudo systemctl enable caddy-web-ui.service
+
+# Start the service now
+sudo systemctl start caddy-web-ui.service
+
+# Check the status
+sudo systemctl status caddy-web-ui.service
+```
+
 ## Development
 
 To enable debugging, set `debug=True` in `run.py`.
+
+
 
 ## License
 This project is licensed under the GNU General Public License v3.0.
