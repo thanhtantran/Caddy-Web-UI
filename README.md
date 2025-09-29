@@ -31,8 +31,8 @@ Caddy Web UI is a user-friendly interface for managing Caddy server configuratio
 
 1. Clone this repository:
    ```bash
-   https://github.com/ATurner96/Caddy-Web-UI.git
-   cd caddy-web-ui
+   https://github.com/thanhtantran/Caddy-Web-UI.git
+   cd Caddy-Web-UI
    ```
 
 2. Install the required Python packages:
